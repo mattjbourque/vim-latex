@@ -448,6 +448,19 @@ function! Tex_ForwardSearchLaTeX()
 endfunction
 
 " }}}
+" Tex_GetTarget: returns the current target {{{
+" Description: "target" is a script variable, this function makes it available
+"			   display.
+function! Tex_GetTarget()
+	if !exists('s:target')
+		return Tex_GetVarValue('Tex_DefaultTargetFormat')
+	else
+		return s:target
+	endif
+endfunction
+
+" }}}
+
 
 " ==============================================================================
 " Functions for compiling parts of a file.
