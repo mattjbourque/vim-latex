@@ -9,7 +9,10 @@
 import re
 import os
 import sys
-import StringIO
+if sys.version_info <= (3, 0):
+    from StringIO import StringIO
+else:
+    from io import StringIO
 
 
 def getFileContents(fname):
@@ -66,8 +69,9 @@ def getSectionLabels_Root(lineinfo, section_prefix, label_prefix):
     prev_txt = ''
     inside_env = 0
     prev_env = ''
-    outstr = StringIO.StringIO('')
+    outstr = StringIO('')
     pres_depth = len(section_prefix)
+    indent = ' ' * (2*pres_depth + 2)
 
     #print '+getSectionLabels_Root: lineinfo = [%s]' % lineinfo
     for line in lineinfo.splitlines():
@@ -83,6 +87,9 @@ def getSectionLabels_Root(lineinfo, section_prefix, label_prefix):
         # we found a label!
         m = re.search(r'\\label{(%s.*?)}' % label_prefix, line)
         if m:
+            # Get the corresponding label
+            label = m.group(1)
+
             # add the current line (except the \label command) to the text
             # which will be displayed below this label
             prev_txt += re.search(r'(^.*?)\\label{', line).group(1)
@@ -100,9 +107,9 @@ def getSectionLabels_Root(lineinfo, section_prefix, label_prefix):
             # :          e^{i\pi} + 1 = 0
             #
             # Use the current "section depth" for the leading indentation.
-            print >>outstr, '>%s%s\t\t<%s>' % (' ' * (2 * pres_depth + 2),
-                                               m.group(1), fname)
-            print >>outstr, ':%s%s' % (' ' * (2 * pres_depth + 4), prev_txt)
+            outstr.write('>%s%s\t\t<%s>\n' % (indent, label, fname))
+            outstr.write(':%s  %s\n'       % (indent, prev_txt))
+
             prev_txt = ''
 
         # If we just encoutered the start or end of an environment or a
@@ -110,7 +117,7 @@ def getSectionLabels_Root(lineinfo, section_prefix, label_prefix):
         # NOTE: This assumes that there is no equation text on the same
         # line as the \begin or \end command. The text on the same line as
         # the \label was already handled.
-        if re.search(r'\\begin{(equation|eqnarray|align|figure)', line):
+        if re.search(r'\\begin{(equation|align|figure)', line):
             prev_txt = ''
             prev_env = re.search(r'\\begin{(.*?)}', line).group(1)
             inside_env = 1
@@ -118,7 +125,7 @@ def getSectionLabels_Root(lineinfo, section_prefix, label_prefix):
         elif re.search(r'\\label', line):
             prev_txt = ''
 
-        elif re.search(r'\\end{(equation|eqnarray|align|figure)', line):
+        elif re.search(r'\\end{(equation|align|figure)', line):
             inside_env = 0
             prev_env = ''
 
@@ -190,4 +197,4 @@ if __name__ == "__main__":
     else:
         prefix = ''
 
-    print main(sys.argv[1], prefix)
+    print(main(sys.argv[1], prefix))
