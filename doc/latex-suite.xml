@@ -769,6 +769,9 @@ abstract = {&ph;},</programlisting>
     whether we are just after something like <literal>\'{a}</literal> and
     if so, deletes all of it. i.e, diacritics are treated as single
     characters for backspacing.
+
+    You might want to disable this feature, if you are editing
+    Chinese, Japanese or Korean text.
    </formalpara>
    <formalpara>
     <title>Smart Quotes</title>
@@ -800,6 +803,15 @@ abstract = {&ph;},</programlisting>
     stuff very easy and to also make some use of the heavily under-utilized
     <literal>&lt;Alt&gt;</literal> key. 
    </para>
+   <note>
+    <para>
+     By default, the mappings involving the <literal>&lt;Alt&gt;</literal> key
+     are turned off for compatibility with inserting non-ASCII characters. It
+     can be enabled by setting
+     <programlisting>let g:Tex_AdvancedMath = 1</programlisting>
+     in your <literal>$VIM/ftplugin/tex.vim</literal>.
+    </para>
+   </note>
    <note>
     <para>
      By default, typing <literal>Alt-&lt;key&gt;</literal> in &vim; takes
@@ -1027,6 +1039,11 @@ abstract = {&ph;},</programlisting>
     au!
     au VimEnter * call IMAP('Foo', 'foo', '')
 augroup END</programlisting>
+   </para>
+   <para>
+    <literal>IMAP</literal> mappings can be removed by
+    <literal>IUNMAP</literal>, e.g.,
+    <programlisting>call IUNMAP('FEM','tex')</programlisting>
    </para>
    <section id="why-IMAP">
     <title id="why-IMAP.title">Why use <literal>IMAP()</literal></title>
@@ -3597,6 +3614,29 @@ let g:Tex_EnvLabelprefix_equation = "eq:"</programlisting>
       \label{&ph;}
 \end{equation}
 &ph;</programlisting>
+      </para>
+    </section>
+    <section id="Tex_ItemsWithCR">
+     <title>Tex_ItemsWithCR</title>
+     <informaltable frame="all">
+      <tgroup cols="2">
+       <tbody>
+        <row><entry>Type</entry><entry>Boolean</entry></row>
+        <row><entry>Default Value</entry>
+         <entry><literal>0</literal></entry></row>
+       </tbody>
+      </tgroup>
+     </informaltable>
+      <para>
+       If <literal>Tex_ItemsWithCR</literal> is set to <literal>1</literal>, a carriage return (i.e., line break)
+       is inserted after <literal>\item</literal> and the placeholder, e.g., <literal>itemize&lt;F5&gt;</literal>
+       is expanded to
+       <programlisting>
+\begin{itemize}
+      \item
+            &ph;
+\end{itemize}
+</programlisting>
       </para>
     </section>
     <section id="Tex_LabelAfterContent">

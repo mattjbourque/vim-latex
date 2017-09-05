@@ -2,8 +2,6 @@
 "     Authors: Srinath Avadhanula <srinath AT fastmail.fm>
 "              Benji Fisher <benji AT member.AMS.org>
 "              
-"         WWW: http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/vim-latex/vimfiles/plugin/imaps.vim?only_with_tag=MAIN
-"
 " Description: insert mode template expander with cursor placement
 "              while preserving filetype indentation.
 "
@@ -44,8 +42,7 @@
 " preserved, because the rhs is expanded as if the rhs is typed in literally
 " by the user.
 "  
-" The script already provides some default mappings. each "mapping" is of the
-" form:
+" Each "mapping" is of the form:
 "
 " call IMAP (lhs, rhs, ft)
 " 
@@ -111,8 +108,15 @@ endif
 " Variables {{{
 " s:LHS_{ft}_{char} will be generated automatically.  It will look like
 " s:LHS_tex_o = 'fo\|foo\|boo' and contain all mapped sequences ending in "o".
+"
 " s:Map_{ft}_{lhs} will be generated automatically.  It will look like
 " s:Map_c_foo = 'for(<++>; <++>; <++>)', the mapping for "foo".
+"
+" s:LHS_{ft} will be generated automatically. It contains all chars for which
+" s:LHS_{ft}_{char} is not empty.
+"
+" b:IMAP_imaps will be generated automatically. It contains all chars which
+" were mapped in the current buffer.
 "
 " }}}
 
@@ -124,7 +128,7 @@ endif
 "           IMAP('abc', 'def' ft) 
 "       will mean that if the letters abc are pressed in insert mode, then
 "       they will be replaced by def. If ft != '', then the "mapping" will be
-"       specific to the files of type ft. 
+"       buffer local. You have to call IMAP_infect() on new buffers of type ft.
 "
 "       Using IMAP has a few advantages over simply doing:
 "           imap abc def
@@ -174,29 +178,103 @@ function! IMAP(lhs, rhs, ft, ...)
 		let s:LHS_{a:ft}_{hash} = escape(a:lhs, '\')
 	else
 		" Check whether this lhs is already mapped.
-		if s:LHS_{a:ft}_{hash} !~# "\\V" . escape(a:lhs, '\')
+		if a:lhs !~# '\V\^\%(' . s:LHS_{a:ft}_{hash} . '\)\$'
 			let s:LHS_{a:ft}_{hash} = escape(a:lhs, '\') .'\|'.  s:LHS_{a:ft}_{hash}
 		endif
 	endif
 
-	" map only the last character of the left-hand side.
-	if lastLHSChar == ' '
-		for lastLHSChar in ['<space>', '<s-space>', '<c-space>', '<cs-space>']
-			exe 'inoremap <silent>'
-						\ escape(lastLHSChar, '|')
-						\ '<C-r>=<SID>LookupCharacter("' .
-						\ escape(lastLHSChar, '\|"') .
-						\ '")<CR>'
-		endfor
-	else
-		exe 'inoremap <silent>'
-					\ escape(lastLHSChar, '|')
-					\ '<C-r>=<SID>LookupCharacter("' .
-					\ escape(lastLHSChar, '\|"') .
-					\ '")<CR>'
+	" Add lastLHSChar to s:LHS_{ft}
+	if a:ft != ''
+		if !exists('s:LHS_'.a:ft)
+			let s:LHS_{a:ft} = []
+		endif
+		if index(s:LHS_{a:ft}, lastLHSChar) < 0
+			call add(s:LHS_{a:ft}, lastLHSChar )
+		endif
 	endif
+
+	" Only add a imap if it is a global IMAP or we are in the correct filetype
+	" (then, we add a <buffer>-local imap, other buffers have to be infected
+	" with IMAP_infect).
+	if a:ft != ''
+		if &ft == a:ft
+			let buffer = '<buffer>'
+		else
+			return
+		endif
+	else
+		let buffer = ''
+	endif
+
+	" map only the last character of the left-hand side.
+	call s:IMAP_add_imap( lastLHSChar, buffer )
 endfunction
 
+" }}}
+" IUNMAP: Removes a "fake" insert mode mapping. {{{
+function! IUNMAP(lhs, ft)
+	let lastLHSChar = s:MultiByteLastCharacter(a:lhs)
+	let charHash = s:Hash(lastLHSChar)
+
+	" Check whether the mapping exists
+	if exists("s:LHS_" . a:ft . "_" . charHash)
+				\ && a:lhs =~# '\V\^\%(' . s:LHS_{a:ft}_{charHash} . '\)\$'
+
+		" Remove lhs from the list of mappings
+		let s:LHS_{a:ft}_{charHash} = substitute(s:LHS_{a:ft}_{charHash},
+					\ '\V\(\^\|\\|\)' . escape(escape(a:lhs, '\'), '\') . '\(\$\|\\|\)',
+					\ '\\|', '')
+
+		" Remove leading/trailing '\|'
+		let s:LHS_{a:ft}_{charHash} = substitute(s:LHS_{a:ft}_{charHash}, '^\\|\|\\|$', '', '')
+
+		let hash = s:Hash(a:lhs)
+		unlet s:Map_{a:ft}_{hash}
+		unlet s:phs_{a:ft}_{hash}
+		unlet s:phe_{a:ft}_{hash}
+
+		if strlen(s:LHS_{a:ft}_{charHash}) == 0
+			" No more mappings left for this lastLHSChar.
+			let idx = index(s:LHS_{a:ft}, lastLHSChar)
+			if idx >= 0
+				call remove(s:LHS_{a:ft}, idx )
+			endif
+
+			" Check for ft and unmap the last character of the left-hand side.
+			" (if ft is set, other buffers with the same ft have to be updated with
+			" IMAP_desinfect() and IMAP_infect()).
+			if a:ft != ''
+				if &ft == a:ft
+					call s:IMAP_rm_imap( lastLHSChar, '<buffer>' )
+				endif
+			else
+				call s:IMAP_rm_imap( lastLHSChar, '' )
+			endif
+		endif
+
+	else
+		" a:lhs is not mapped!
+		" Do nothing.
+	endif
+endfunction
+" }}}
+" IMAP_infect: Infect the current buffer with ft IMAPS. {{{
+function! IMAP_infect()
+	if &ft != '' && exists('s:LHS_'.&ft)
+		for lastLHSChar in s:LHS_{&ft}
+			call s:IMAP_add_imap( lastLHSChar, '<buffer>' )
+		endfor
+	endif
+endfunction
+" }}}
+" IMAP_desinfect: Desinfect the current buffer with ft IMAPS. {{{
+function! IMAP_desinfect()
+	if exists('b:IMAP_imaps')
+		for lastLHSChar in copy(b:IMAP_imaps)
+			call s:IMAP_rm_imap( lastLHSChar, '<buffer>' )
+		endfor
+	endif
+endfunction
 " }}}
 " IMAP_list:  list the rhs and place holders corresponding to a:lhs {{{
 "
@@ -204,9 +282,11 @@ endfunction
 function! IMAP_list(lhs)
 	let char = s:MultiByteLastCharacter(a:lhs)
 	let charHash = s:Hash(char)
-	if exists("s:LHS_" . &ft ."_". charHash) && a:lhs =~ s:LHS_{&ft}_{charHash}
+	if exists("s:LHS_" . &ft ."_". charHash)
+				\ && a:lhs =~# '\V\^\%(' . s:LHS_{&ft}_{charHash} . '\)\$'
 		let ft = &ft
-	elseif exists("s:LHS__" . charHash) && a:lhs =~ s:LHS__{charHash}
+	elseif exists("s:LHS__" . charHash)
+				\ && a:lhs =~# '\V\^\%(' . s:LHS__{charHash} . '\)\$'
 		let ft = ""
 	else
 		return ""
@@ -238,9 +318,7 @@ function! IMAP_list_all(char)
 				" Undo the escaping of backslashes in lhs
 				let lhs = substitute(lhs, '\\\\', '\', 'g')
 				let hash = s:Hash(lhs)
-				" echohl WarningMsg
 				let result .= ft_display . lhs . " => " . strtrans( s:Map_{ft}_{hash} ) . "\n"
-				" echohl None
 			endfor
 		endif
 	endfor
@@ -392,7 +470,7 @@ function! IMAP_PutTextWithMovement(str, ...)
 	let text = initial . "X\<C-\>\<C-N>:call IMAP_Mark('set')\<CR>\"_s"
 	let text = text . template . final
 	let text = text . "\<C-\>\<C-N>:call IMAP_Mark('go')\<CR>"
-	let text = text . "i\<C-r>=IMAP_Jumpfunc('', 1)\<CR>"
+	let text = text . ":call IMAP_Jumpfunc('', 1)\<CR>"
 
 	call IMAP_Debug('IMAP_PutTextWithMovement: text = ['.text.']', 'imap')
 	return text
@@ -420,62 +498,62 @@ function! IMAP_Jumpfunc(direction, inclusive)
 	let phsUser = IMAP_GetPlaceHolderStart()
 	let pheUser = IMAP_GetPlaceHolderEnd()
 
-	let searchString = ''
-	" If this is not an inclusive search or if it is inclusive, but the
-	" current cursor position does not contain a placeholder character, then
-	" search for the placeholder characters.
-	if !a:inclusive || strpart(getline('.'), col('.')-1) !~ '\V\^'.phsUser
-		let searchString = '\V'.phsUser.'\_.\{-}'.pheUser
-	endif
+	" Set up flags for the search() function
+	let flags = a:direction
+	if a:inclusive
+		let flags .= 'c'
+	end
+
+	let searchString = '\V'.phsUser.'\_.\{-}'.pheUser
 
 	" If we didn't find any placeholders return quietly.
-	if searchString != '' && !search(searchString, a:direction)
-		return ''
+	if !search(searchString, flags)
+		return
 	endif
 
 	" Open any closed folds and make this part of the text visible.
 	silent! foldopen!
 
-	" Calculate if we have an empty placeholder or if it contains some
-	" description.
-	let template = 
-		\ matchstr(strpart(getline('.'), col('.')-1),
-		\          '\V\^'.phsUser.'\zs\.\{-}\ze\%('.pheUser.'\|\$\)')
-	let placeHolderEmpty = !strlen(template)
+	" We are at the starting placeholder. Start visual mode.
+	normal! v
 
-	" Search for the end placeholder.
-	let end_pos = searchpos('\V'.pheUser, 'ne')
-	" How many characters should be selected?
-	let nmove = virtcol(end_pos) - virtcol('.')
+	" Calculate if we have an empty placeholder. It is empty if both
+	" placeholders appear one after the other.
+	" Check also whether the empty placeholder ends at the end of the line.
+	let curline = strpart(getline('.'), col('.')-1)
+	let phUser = phsUser.pheUser
+	let placeHolderEmpty = (strpart(curline,0,strlen(phUser)) ==# phUser)
+	let placeHolderEOL = (curline ==# phUser)
+
+	" Search for the end placeholder and position the cursor.
+	call search(searchString, 'ce')
 
 	" If we are selecting in exclusive mode, then we need to move one step to
 	" the right
 	if &selection == 'exclusive'
-		let nmove += 1
+		normal! l
 	endif
 
-	" Select till the end placeholder character.
-	let movement = "\<C-o>v".nmove."l"
-
-	" Leave (insert)-visual mode and reselect.
-	let movement .= "\<C-\>\<C-N>gv"
-
-	" Now either goto insert mode or select mode.
+	" Now either goto insert mode, visual mode or select mode.
 	if placeHolderEmpty && g:Imap_DeleteEmptyPlaceHolders
 		" Delete the empty placeholder into the blackhole.
-		return movement . '"_c'
+		normal! "_d
+		" Start insert mode. If the placeholder was at the end of the line, use
+		" startinsert! (equivalent to 'A'), otherwise startinsert (equiv. 'i')
+		if placeHolderEOL
+			startinsert!
+		else
+			startinsert
+		endif
 	else
 		if g:Imap_GoToSelectMode
 			" Go to select mode
-			return movement . "\<C-g>"
+			execute "normal! \<C-g>"
 		else
 			" Do not go to select mode
-			return movement
 		endif
 	endif
-	
 endfunction
-
 " }}}
 " Maps for IMAP_Jumpfunc {{{
 "
@@ -486,20 +564,20 @@ endfunction
 " etc.
 
 " jumping forward and back in insert mode.
-inoremap <silent> <Plug>IMAP_JumpForward    <c-r>=IMAP_Jumpfunc('', 0)<CR>
-inoremap <silent> <Plug>IMAP_JumpBack       <c-r>=IMAP_Jumpfunc('b', 0)<CR>
+inoremap <silent> <Plug>IMAP_JumpForward    <C-\><C-N>:call IMAP_Jumpfunc('', 0)<CR>
+inoremap <silent> <Plug>IMAP_JumpBack       <C-\><C-N>:call IMAP_Jumpfunc('b', 0)<CR>
 
 " jumping in normal mode
-nnoremap <silent> <Plug>IMAP_JumpForward        i<c-r>=IMAP_Jumpfunc('', 0)<CR>
-nnoremap <silent> <Plug>IMAP_JumpBack           i<c-r>=IMAP_Jumpfunc('b', 0)<CR>
+nnoremap <silent> <Plug>IMAP_JumpForward        :call IMAP_Jumpfunc('', 0)<CR>
+nnoremap <silent> <Plug>IMAP_JumpBack           :call IMAP_Jumpfunc('b', 0)<CR>
 
 " deleting the present selection and then jumping forward.
-vnoremap <silent> <Plug>IMAP_DeleteAndJumpForward       "_<Del>i<c-r>=IMAP_Jumpfunc('', 0)<CR>
-vnoremap <silent> <Plug>IMAP_DeleteAndJumpBack          "_<Del>i<c-r>=IMAP_Jumpfunc('b', 0)<CR>
+vnoremap <silent> <Plug>IMAP_DeleteAndJumpForward       "_<Del>:call IMAP_Jumpfunc('', 0)<CR>
+vnoremap <silent> <Plug>IMAP_DeleteAndJumpBack          "_<Del>:call IMAP_Jumpfunc('b', 0)<CR>
 
 " jumping forward without deleting present selection.
-vnoremap <silent> <Plug>IMAP_JumpForward       <C-\><C-N>i<c-r>=IMAP_Jumpfunc('', 0)<CR>
-vnoremap <silent> <Plug>IMAP_JumpBack          <C-\><C-N>`<i<c-r>=IMAP_Jumpfunc('b', 0)<CR>
+vnoremap <silent> <Plug>IMAP_JumpForward       <C-\><C-N>:call IMAP_Jumpfunc('', 0)<CR>
+vnoremap <silent> <Plug>IMAP_JumpBack          <C-\><C-N>`<:call IMAP_Jumpfunc('b', 0)<CR>
 
 " }}}
 " Default maps for IMAP_Jumpfunc {{{
@@ -524,152 +602,9 @@ else
 endif
 " }}}
 
-nnoremap <silent> <script> <plug><+SelectRegion+> `<v`>
-
-" ============================================================================== 
-" enclosing selected region.
-" ============================================================================== 
-" VEnclose: encloses the visually selected region with given arguments {{{
-" Description: allows for differing action based on visual line wise
-"              selection or visual characterwise selection. preserves the
-"              marks and search history.
-function! VEnclose(vstart, vend, VStart, VEnd)
-
-	" its characterwise if
-	" 1. characterwise selection and valid values for vstart and vend.
-	" OR
-	" 2. linewise selection and invalid values for VStart and VEnd
-	if (visualmode() ==# 'v' && (a:vstart != '' || a:vend != '')) || (a:VStart == '' && a:VEnd == '')
-
-		let newline = ""
-		let _r = @r
-
-		let normcmd = "normal! \<C-\>\<C-n>`<v`>\"_s"
-
-		exe "normal! \<C-\>\<C-n>`<v`>\"ry"
-		if @r =~ "\n$"
-			let newline = "\n"
-			let @r = substitute(@r, "\n$", '', '')
-		endif
-
-		" In exclusive selection, we need to select an extra character.
-		if &selection == 'exclusive'
-			let movement = 8
-		else
-			let movement = 7
-		endif
-		let normcmd = normcmd.
-			\ a:vstart."!!mark!!".a:vend.newline.
-			\ "\<C-\>\<C-N>?!!mark!!\<CR>v".movement."l\"_s\<C-r>r\<C-\>\<C-n>"
-
-		" this little if statement is because till very recently, vim used to
-		" report col("'>") > length of selected line when `> is $. on some
-		" systems it reports a -ve number.
-		if col("'>") < 0 || col("'>") > strlen(getline("'>"))
-			let lastcol = strlen(getline("'>"))
-		else
-			let lastcol = col("'>")
-		endif
-		if lastcol - col("'<") != 0
-			let len = lastcol - col("'<")
-		else
-			let len = ''
-		endif
-
-		" the next normal! is for restoring the marks.
-		let normcmd = normcmd."`<v".len."l\<C-\>\<C-N>"
-
-		" First remember what the search pattern was. s:RemoveLastHistoryItem
-		" will reset @/ to this pattern so we do not create new highlighting.
-		let g:Tex_LastSearchPattern = @/
-
-		silent! exe normcmd
-		" this is to restore the r register.
-		call setreg("r", _r, "c")
-		" and finally, this is to restore the search history.
-		execute s:RemoveLastHistoryItem
-
-	else
-
-		exec 'normal! `<O'.a:VStart."\<C-\>\<C-n>"
-		exec 'normal! `>o'.a:VEnd."\<C-\>\<C-n>"
-		if &indentexpr != ''
-			silent! normal! `<kV`>j=
-		endif
-		silent! normal! `>
-	endif
-endfunction 
-
-" }}}
-" ExecMap: adds the ability to correct an normal/visual mode mapping.  {{{
-" Author: Hari Krishna Dara <hari_vim@yahoo.com>
-" Reads a normal mode mapping at the command line and executes it with the
-" given prefix. Press <BS> to correct and <Esc> to cancel.
-function! ExecMap(prefix, mode)
-	" Temporarily remove the mapping, otherwise it will interfere with the
-	" mapcheck call below:
-	let myMap = maparg(a:prefix, a:mode)
-	exec a:mode."unmap ".a:prefix
-
-	" Generate a line with spaces to clear the previous message.
-	let i = 1
-	let clearLine = "\r"
-	while i < &columns
-		let clearLine = clearLine . ' '
-		let i = i + 1
-	endwhile
-
-	let mapCmd = a:prefix
-	let foundMap = 0
-	let breakLoop = 0
-	echon "\rEnter Map: " . mapCmd
-	while !breakLoop
-		let char = getchar()
-		if char !~ '^\d\+$'
-			if char == "\<BS>"
-				let mapCmd = s:MultiByteWOLastCharacter(mapCmd)
-			endif
-		else " It is the ascii code.
-			let char = nr2char(char)
-			if char == "\<Esc>"
-				let breakLoop = 1
-			else
-				let mapCmd = mapCmd . char
-				if maparg(mapCmd, a:mode) != ""
-					let foundMap = 1
-					let breakLoop = 1
-				elseif mapcheck(mapCmd, a:mode) == ""
-					let mapCmd = s:MultiByteWOLastCharacter(mapCmd)
-				endif
-			endif
-		endif
-		echon clearLine
-		echon "\rEnter Map: " . mapCmd
-	endwhile
-	if foundMap
-		if a:mode == 'v'
-			" use a plug to select the region instead of using something like
-			" `<v`> to avoid problems caused by some of the characters in
-			" '`<v`>' being mapped.
-			let gotoc = "\<plug><+SelectRegion+>"
-		else
-			let gotoc = ''
-		endif
-		exec "normal ".gotoc.mapCmd
-	endif
-	exec a:mode.'noremap '.a:prefix.' '.myMap
-endfunction
-
-" }}}
-
 " ============================================================================== 
 " helper functions
 " ============================================================================== 
-" s:RemoveLastHistoryItem: removes last search item from search history {{{
-" Description: Execute this string to clean up the search history.
-let s:RemoveLastHistoryItem = ':call histdel("/", -1)|let @/=g:Tex_LastSearchPattern'
-
-" }}}
 " s:Hash: Return a version of a string that can be used as part of a variable" {{{
 " name.
 " 	Converts every non alphanumeric character into _{ascii}_ where {ascii} is
@@ -679,6 +614,46 @@ fun! s:Hash(text)
 				\ '\="_".char2nr(submatch(1))."_"', 'g')
 endfun
 "" }}}
+" s:IMAP_add_imap() Adds the imap for IMAP {{{
+function! s:IMAP_add_imap( lastLHSChar, buffer )
+	if a:lastLHSChar == ' '
+		for lastLHSChar in ['<space>', '<s-space>', '<c-space>', '<cs-space>']
+			call s:IMAP_add_imap( lastLHSChar, a:buffer )
+		endfor
+	else
+		if a:buffer =~# '<buffer>'
+			if !exists('b:IMAP_imaps')
+				let b:IMAP_imaps = []
+			endif
+			if index(b:IMAP_imaps, a:lastLHSChar) < 0
+				call add(b:IMAP_imaps, a:lastLHSChar )
+			endif
+		endif
+		exe 'inoremap <silent>' . a:buffer
+					\ escape(a:lastLHSChar, '|')
+					\ '<C-r>=<SID>LookupCharacter("' .
+					\ escape(a:lastLHSChar, '\|"') .
+					\ '")<CR>'
+	endif
+endfunction
+" }}}
+" s:IMAP_rm_imap() Removes the imap for IMAP {{{
+function! s:IMAP_rm_imap( lastLHSChar, buffer )
+	if a:lastLHSChar == ' '
+		for lastLHSChar in ['<space>', '<s-space>', '<c-space>', '<cs-space>']
+			call s:IMAP_rm_imap( lastLHSChar, a:buffer )
+		endfor
+	else
+		if a:buffer =~# '<buffer>' && exists('b:IMAP_imaps')
+			let idx = index(b:IMAP_imaps, a:lastLHSChar)
+			if idx >= 0
+				call remove(b:IMAP_imaps, idx)
+			endif
+		endif
+		exe 'iunmap <silent>' . a:buffer escape(a:lastLHSChar, '|')
+	endif
+endfunction
+" }}}
 " IMAP_GetPlaceHolderStart and IMAP_GetPlaceHolderEnd:  "{{{
 " return the buffer local placeholder variables, or the global one, or the default.
 function! IMAP_GetPlaceHolderStart()
@@ -783,10 +758,6 @@ endfunction " }}}
 " s:MultiByteLastCharacter: Return last multibyte characters {{{
 function! s:MultiByteLastCharacter(str)
 	return matchstr(a:str, ".$")
-endfunction " }}}
-" s:MultiByteWOLastCharacter: Return string without last multibyte character {{{
-function! s:MultiByteWOLastCharacter(str)
-	return substitute(a:str, ".$", "", "")
 endfunction " }}}
 
 let &cpo = s:save_cpo
