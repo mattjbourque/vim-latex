@@ -96,7 +96,7 @@ function! MakeTexFolds(force, manual)
 
 	" Folding items which are not caught in any of the standard commands,
 	" environments or sections.
-	let s = 'question,item,slide,preamble,<<<'
+	let s = 'question,part,item,slide,preamble,<<<'
 	if !exists('g:Tex_FoldedMisc')
 		let g:Tex_FoldedMisc = s
 	elseif g:Tex_FoldedMisc[0] == ','
@@ -240,6 +240,19 @@ function! MakeTexFolds(force, manual)
 			\ '^[^%]',
 			\ 0,
 			\ -1 
+			\ )
+	endif
+	" }}}
+
+	" {{{ part
+	if g:Tex_FoldedMisc =~ '\<part\>'
+		call AddSyntaxFoldItem (
+			\ '^\s*\\part',
+			\ '^\s*\\part\|^\s*\\end{parts}',
+			\ 0,
+			\ -1,
+			\ '^\s*\\begin{parts}',
+			\ '^\s*\\end{parts}'
 			\ )
 	endif
 	" }}}
