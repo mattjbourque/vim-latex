@@ -92,7 +92,7 @@ function! MakeTexFolds(force)
 
 	" Folding items which are not caught in any of the standard commands,
 	" environments or sections.
-	let s = 'item,slide,preamble,<<<'
+	let s = 'question,item,slide,preamble,<<<'
 	if !exists('g:Tex_FoldedMisc')
 		let g:Tex_FoldedMisc = s
 	elseif g:Tex_FoldedMisc[0] == ','
@@ -236,6 +236,19 @@ function! MakeTexFolds(force)
 			\ '^[^%]',
 			\ 0,
 			\ -1 
+			\ )
+	endif
+	" }}}
+
+	" {{{ question
+	if g:Tex_FoldedMisc =~ '\<question\>'
+		call AddSyntaxFoldItem (
+			\ '^\s*\\question',
+			\ '^\s*\\question\|^\s*\\end{questions}',
+			\ 0,
+			\ -1,
+			\ '^\s*\\begin{questions}',
+			\ '^\s*\\end{questions}'
 			\ )
 	endif
 	" }}}
