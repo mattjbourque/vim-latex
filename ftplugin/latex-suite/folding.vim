@@ -7,7 +7,7 @@
 "  Description: functions to interact with Syntaxfolds.vim
 "=============================================================================
 
-nnoremap <unique> <Plug>Tex_RefreshFolds :call MakeTexFolds(1)<cr>
+nnoremap <unique> <Plug>Tex_RefreshFolds :call MakeTexFolds(1, 1)<cr>
 
 augroup LatexSuite
 	au LatexSuite User LatexSuiteFileType 
@@ -26,15 +26,19 @@ function! Tex_SetFoldOptions()
 	setlocal foldtext=TexFoldTextFunction()
 
 	if g:Tex_Folding
-		call MakeTexFolds(0)
-		if !g:Tex_AutoFolding
-			normal! zR
-		endif
+		call MakeTexFolds(0, 0)
 	endif
 
 	let s:ml = '<Leader>'
 
 	call Tex_MakeMap(s:ml."rf", "<Plug>Tex_RefreshFolds", 'n', '<silent> <buffer>')
+
+	" Setup a local autocommand, if FileChangedShellPost is available
+	if exists('##FileChangedShellPost')
+		augroup LatexSuite
+			autocmd FileChangedShellPost <buffer> call MakeTexFolds(1, 0)
+		augroup END
+	endif
 
 endfunction " }}}
 " Tex_FoldSections: creates section folds {{{
@@ -77,7 +81,7 @@ endfunction
 "
 " used in conjunction with MakeSyntaxFolds().
 " see ../plugin/syntaxFolds.vim for documentation
-function! MakeTexFolds(force)
+function! MakeTexFolds(force, manual)
 	if exists('g:Tex_Folding') && !g:Tex_Folding
 		return
 	endif
@@ -376,6 +380,12 @@ function! MakeTexFolds(force)
 	" }}}
 	
 	call MakeSyntaxFolds(a:force)
+
+	" Open all folds if this function was triggered automatically
+	" and g:Tex_AutoFolding is disabled
+	if a:manual && !g:Tex_AutoFolding
+		normal! zR
+	endif
 endfunction
 
 " }}}
@@ -465,10 +475,92 @@ function! TexFoldTextFunction()
 	elseif getline(v:foldstart) =~ '^\s*\\document\(class\|style\).*{'
 		" This is the preamble.
 		return myfoldtext . 'Preamble: ' . getline(v:foldstart)
+	end
+
+	let section_pattern = substitute(g:Tex_FoldedSections, ',\||', '\\|', 'g')
+	let section_pattern = '\\\%(' . section_pattern .'\)\>'
+
+	if getline(v:foldstart) =~ '^\s*' . section_pattern
+		" This is a section. Search for the content of the mandatory argument {...}
+		let type = matchstr(getline(v:foldstart), '^\s*\zs' . section_pattern)
+		let idx = match(getline(v:foldstart), '^\s*' . section_pattern . '\zs')
+
+		return myfoldtext . type . ParseSectionTitle(v:foldstart, idx)
 	else
 		" This is something.
 		return myfoldtext . getline(v:foldstart)
 	end
+endfunction
+" }}}
+" s:ParseSectionTitle: create fold text for sections {{{
+" Search for the mandatory argument of the \section command and ignore the
+" optional argument.
+function! ParseSectionTitle(foldstart, idx)
+	let currlinenr = a:foldstart
+	let currline = s:StripLine(getline(currlinenr))
+	let currlinelen = strlen(currline)
+
+	let index = a:idx
+
+	let maxlines = 10
+
+	" Current depth of nested [] and {}:
+	let currdepth = 0
+	" Do we have found the mandatory argument?
+	" (We are looking for '{' at depth 0)
+	let found_mandatory = 0
+
+	let string = ''
+
+	while (currdepth > 0) || !found_mandatory
+		if index >= currlinelen
+			" Read a new line.
+			let maxlines = maxlines - 1
+			if maxlines < 0
+				return string . ' Scanned to many lines'
+			endif
+			let currlinenr = currlinenr + 1
+			let currline = s:StripLine(getline(currlinenr))
+			let currlinelen = strlen(currline)
+
+			let index = 0
+
+			if found_mandatory
+				let string .= ' '
+			endif
+			continue
+		endif
+
+		" Look for [] and {}
+		if currline[index] =~ '[[{]'
+			if(currdepth == 0) && (currline[index] =~ '{')
+				let found_mandatory = 1
+			end
+			let currdepth += 1
+		elseif currline[index] =~ '[]}]'
+			let currdepth -= 1
+		endif
+
+		if found_mandatory
+			let string .= currline[index]
+		endif
+
+		let index = index + 1
+	endwhile
+
+	return string
+endfunction
+" }}}
+" s:StripLine: strips whitespace and comments {{{
+function! s:StripLine( string )
+	let string = matchstr( a:string, '^\s*\zs.*$')
+	let comment = match( string, '\\\@<!\%(\\\\\)*\zs%')
+	if comment > 0
+		let string = string[0:comment-1]
+	elseif comment == 0
+		let string = ''
+	endif
+	return string
 endfunction
 " }}}
 

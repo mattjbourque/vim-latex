@@ -142,8 +142,8 @@ function! Tex_pack_updateall(force)
 	let g:Tex_PromptedCommands = g:Tex_PromptedCommandsDefault
 
 	if expand('%:p') != fname
-		call Tex_Debug(':Tex_pack_updateall: sview '.Tex_EscapeSpaces(fname), 'pack')
-		exe 'sview '.Tex_EscapeSpaces(fname)
+		call Tex_Debug(':Tex_pack_updateall: sview '.fnameescape(fname), 'pack')
+		exe 'sview '.fnameescape(fname)
 	else
 		call Tex_Debug(':Tex_pack_updateall: split', 'pack')
 		split
@@ -193,9 +193,16 @@ function! Tex_pack_updateall(force)
 		" modified etc.
 		split
 
-		call Tex_Debug(':Tex_pack_updateall: silent! find '.Tex_EscapeSpaces(packname).'.sty', 'pack')
 		let thisbufnum = bufnr('%')
-		exec 'silent! find '.Tex_EscapeSpaces(packname).'.sty'
+		call Tex_Debug(':Tex_pack_updateall: findfile("'.fnameescape(packname).'.sty")', 'pack')
+		let package_file = findfile( fnameescape(packname) .'.sty' )
+
+		if package_file != ""
+			call Tex_Debug(':Tex_pack_updateall: found "'. package_file .'"', 'pack')
+			exec 'view ' . package_file
+		else
+			call Tex_Debug(':Tex_pack_updateall: did not find "'. fnameescape(packname) .'.sty' .'" in "' . &path . '"', 'pack')
+		end
 		call Tex_Debug(':Tex_pack_updateall: present file = '.bufname('%'), 'pack')
 
 		" If this file was not found, assume that it means its not a

@@ -52,7 +52,7 @@ class Bibliography(dict):
         for k, v in items(macros):
             txt = txt.replace(k, '{' + v + '}')
 
-        m = re.match(r'\s*@(\w+){\s*((\S+),)?(.*)}\s*', txt,
+        m = re.match(r'\s*@(\w+)\s*{\s*((\S+),)?(.*)}\s*', txt,
                      re.MULTILINE | re.DOTALL)
         if not m:
             return None
@@ -232,13 +232,7 @@ class BibFile:
         self.sortfields = []
 
     def sort(self):
-        def cmpfun(b1, b2):
-            for f in self.sortfields:
-                c = cmp(b1[f], b2[f])
-                if c:
-                    return c
-            return 0
-        self.bibentries.sort(cmp=cmpfun)
+        self.bibentries.sort(key=lambda x:[x[field] for field in self.sortfields])
 
 if __name__ == "__main__":
     import sys
