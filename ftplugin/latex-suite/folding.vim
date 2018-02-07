@@ -11,8 +11,8 @@ nnoremap <Plug>Tex_RefreshFolds :call MakeTexFolds(1, 1)<cr>
 
 augroup LatexSuite
 	au LatexSuite User LatexSuiteFileType 
-		\ call Tex_Debug('folding.vim: catching LatexSuiteFileType', 'fold') | 
-		\ call Tex_SetFoldOptions()
+				\ call Tex_Debug('folding.vim: catching LatexSuiteFileType', 'fold') | 
+				\ call Tex_SetFoldOptions()
 augroup END
 
 " Tex_SetFoldOptions: sets maps for every buffer {{{
@@ -122,7 +122,7 @@ function! MakeTexFolds(force, manual)
 	endif
 
 	let s = 'verbatim,comment,eq,gather,align,figure,table,thebibliography,'
-			\. 'keywords,abstract,titlepage'
+				\. 'keywords,abstract,titlepage'
 	if !exists('g:Tex_FoldedEnvironments')
 		let g:Tex_FoldedEnvironments = s
 	elseif g:Tex_FoldedEnvironments[0] == ','
@@ -130,10 +130,10 @@ function! MakeTexFolds(force, manual)
 	elseif g:Tex_FoldedEnvironments =~ ',$'
 		let g:Tex_FoldedEnvironments = g:Tex_FoldedEnvironments . s
 	endif
-	
+
 	if !exists('g:Tex_FoldedSections')
 		let g:Tex_FoldedSections = 'part,chapter,section,'
-								\. 'subsection,subsubsection,paragraph'
+					\. 'subsection,subsubsection,paragraph'
 	endif
 
 	" the order in which these calls are made decides the nestedness. in
@@ -232,68 +232,68 @@ function! MakeTexFolds(force, manual)
 	"
 	" }}}
 	" ========================================================================
-	
+
 	" {{{ comment lines
 	if g:Tex_FoldedMisc =~ '\<comments\>'
 		call AddSyntaxFoldItem (
-			\ '^%\([^%]\|[^f]\|[^a]\|[^k]\|[^e]\)',
-			\ '^[^%]',
-			\ 0,
-			\ -1 
-			\ )
+					\ '^%\([^%]\|[^f]\|[^a]\|[^k]\|[^e]\)',
+					\ '^[^%]',
+					\ 0,
+					\ -1 
+					\ )
 	endif
 	" }}}
 
 	" {{{ part
 	if g:Tex_FoldedMisc =~ '\<part\>'
 		call AddSyntaxFoldItem (
-			\ '^\s*\\part',
-			\ '^\s*\\part\|^\s*\\end{parts}',
-			\ 0,
-			\ -1,
-			\ '^\s*\\begin{parts}',
-			\ '^\s*\\end{parts}'
-			\ )
+					\ '^\s*\\part',
+					\ '^\s*\\part\|^\s*\\end{parts}',
+					\ 0,
+					\ -1,
+					\ '^\s*\\begin{parts}',
+					\ '^\s*\\end{parts}'
+					\ )
 	endif
 	" }}}
 
 	" {{{ question
 	if g:Tex_FoldedMisc =~ '\<question\>'
 		call AddSyntaxFoldItem (
-			\ '^\s*\\question',
-			\ '^\s*\\question\|^\s*\\end{questions}',
-			\ 0,
-			\ -1,
-			\ '^\s*\\begin{questions}',
-			\ '^\s*\\end{questions}'
-			\ )
+					\ '^\s*\\question',
+					\ '^\s*\\question\|^\s*\\end{questions}',
+					\ 0,
+					\ -1,
+					\ '^\s*\\begin{questions}',
+					\ '^\s*\\end{questions}'
+					\ )
 	endif
 	" }}}
 
 	" {{{ items
 	if g:Tex_FoldedMisc =~ '\<item\>'
 		call AddSyntaxFoldItem (
-			\ '^\s*\\item',
-			\ '^\s*\\item\|^\s*\\end{\(enumerate\|itemize\|description\)}',
-			\ 0,
-			\ -1,
-			\ '^\s*\\begin{\(enumerate\|itemize\|description\)}',
-			\ '^\s*\\end{\(enumerate\|itemize\|description\)}'
-			\ )
+					\ '^\s*\\item',
+					\ '^\s*\\item\|^\s*\\end{\(enumerate\|itemize\|description\)}',
+					\ 0,
+					\ -1,
+					\ '^\s*\\begin{\(enumerate\|itemize\|description\)}',
+					\ '^\s*\\end{\(enumerate\|itemize\|description\)}'
+					\ )
 	endif
 	" }}}
 
 	" {{{ title
 	if g:Tex_FoldedMisc =~ '\<title\>'
 		call AddSyntaxFoldItem (
-			\ '^\s*\\title\W',
-			\ '^\s*\\maketitle',
-			\ 0,
-			\ 0
-			\ )
+					\ '^\s*\\title\W',
+					\ '^\s*\\maketitle',
+					\ 0,
+					\ 0
+					\ )
 	endif
 	" }}}
- 
+
 	" Commands and Environments {{{
 	" Fold the commands and environments in 2 passes.
 	let pass = 0
@@ -339,46 +339,46 @@ function! MakeTexFolds(force, manual)
 	" Sections {{{
 	if g:Tex_FoldedSections != '' 
 		call Tex_FoldSections(g:Tex_FoldedSections,
-			\ '^\s*\\\%(frontmatter\|mainmatter\|backmatter\)\|'
-			\. '^\s*\\begin{thebibliography\|>>>\|^\s*\\endinput\|'
-			\. '^\s*\\begin{slide\|^\s*\\\%(begin\|end\){document\|'
-			\. '^\s*\\\%(\%(begin\|end\){appendix}\|appendix\)')
+					\ '^\s*\\\%(frontmatter\|mainmatter\|backmatter\)\|'
+					\. '^\s*\\begin{thebibliography\|>>>\|^\s*\\endinput\|'
+					\. '^\s*\\begin{slide\|^\s*\\\%(begin\|end\){document\|'
+					\. '^\s*\\\%(\%(begin\|end\){appendix}\|appendix\)')
 	endif
 	" }}} 
-	
+
 	" {{{ slide
 	if g:Tex_FoldedMisc =~ '\<slide\>'
 		call AddSyntaxFoldItem (
-			\ '^\s*\\begin{slide',
-			\ '^\s*\\appendix\W\|^\s*\\chapter\W\|^\s*\\end{slide\|^\s*\\end{document',
-			\ 0,
-			\ 0
-			\ )
+					\ '^\s*\\begin{slide',
+					\ '^\s*\\appendix\W\|^\s*\\chapter\W\|^\s*\\end{slide\|^\s*\\end{document',
+					\ 0,
+					\ 0
+					\ )
 	endif
 	" }}}
 
 	" {{{ preamble
 	if g:Tex_FoldedMisc =~ '\<preamble\>'
 		call AddSyntaxFoldItem (
-			\ '^\s*\\document\(class\|style\).*{',
-			\ '^\s*\\begin{document}',
-			\ 0,
-			\ -1 
-			\ )
+					\ '^\s*\\document\(class\|style\).*{',
+					\ '^\s*\\begin{document}',
+					\ 0,
+					\ -1 
+					\ )
 	endif
 	" }}}
 
 	" Manually folded regions {{{
 	if g:Tex_FoldedMisc =~ '\(^\|,\)<<<\(,\|$\)'
 		call AddSyntaxFoldItem (
-			\ '<<<',
-			\ '>>>',
-			\ 0,
-			\ 0
-			\ )
+					\ '<<<',
+					\ '>>>',
+					\ 0,
+					\ 0
+					\ )
 	endif
 	" }}}
-	
+
 	call MakeSyntaxFolds(a:force)
 
 	" Open all folds if this function was triggered automatically
@@ -403,7 +403,7 @@ function! TexFoldTextFunction()
 
 	if getline(v:foldstart) =~ '^\s*\\begin{'
 		let header = matchstr(getline(v:foldstart),
-							\ '^\s*\\begin{\zs\([:alpha:]*\)[^}]*\ze}')
+					\ '^\s*\\begin{\zs\([:alpha:]*\)[^}]*\ze}')
 		let title = ''
 		let caption = ''
 		let label = ''
@@ -473,13 +473,12 @@ function! TexFoldTextFunction()
 		"Pad with spaces to length 3
 		let qstnum = repeat(' ', 3-len(qstnum)) . qstnum . ' '
 		"Does it have points associated?
-		" TODO: it would be nice to actually count up the points from any
+		" FIXME: it would be nice to actually count up the points from any
 		" subsequent parts. For now, just include points if this question is
 		" assigned points directly.
 		let points  = str2nr(matchstr(getline(v:foldstart), '\\question\[\zs\d\+'))
 		" Pad with spaces to length 3
 		let points = repeat(' ', 3-len(points)) . points . ' pts'
-		endif
 		return myfoldtext . '[Question' . qstnum . points . substitute(getline(v:foldstart), '^\s*\\question\(\[\d\+\]\)\? \+', '] ', '')
 	elseif getline(v:foldstart) =~ '^\s*%\+[% =-]*$'
 		" Useless comment. Use the next line.
