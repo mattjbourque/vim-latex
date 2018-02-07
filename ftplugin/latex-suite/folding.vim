@@ -463,27 +463,24 @@ function! TexFoldTextFunction()
 
 		return myfoldtext . header.  ' ('.label.'): '.caption
 	elseif getline(v:foldstart) =~ '^\s*\\question'
-		let points = ''
-		" A question - count how many question
+		" A question - count how many questions
 		let qstnum = 0
 		for line in getline(1,v:foldstart)
 			if line =~ '^\s*\\question'
-					"let caption = matchstr(getline(i), '\\caption\[\zs[^\]]*')
 				let qstnum=qstnum+1
 			endif
 		endfor
 		"Pad with spaces to length 3
-		let qstnum = repeat(' ', 3-len(qstnum)) . qstnum
+		let qstnum = repeat(' ', 3-len(qstnum)) . qstnum . ' '
 		"Does it have points associated?
 		" TODO: it would be nice to actually count up the points from any
 		" subsequent parts. For now, just include points if this question is
 		" assigned points directly.
-		let pt = matchstr(getline(v:foldstart), '\\question\[\zs[^\]]*')
-		if strlen(pt)>0
-			"Pad with spaces to length 3, add the word 'points'
-			let p = repeat(' ',3-len(p)) . pt . ' points'
+		let points  = str2nr(matchstr(getline(v:foldstart), '\\question\[\zs\d\+'))
+		" Pad with spaces to length 3
+		let points = repeat(' ', 3-len(points)) . points . ' pts'
 		endif
-		return myfoldtext . 'Question' . qstnum . points . substitute(getline(v:foldstart), '^\s*\\question\(\[\d\]\)\? \+', ': ', '')
+		return myfoldtext . '[Question' . qstnum . points . substitute(getline(v:foldstart), '^\s*\\question\(\[\d\+\]\)\? \+', '] ', '')
 	elseif getline(v:foldstart) =~ '^\s*%\+[% =-]*$'
 		" Useless comment. Use the next line.
 		return myfoldtext . getline(v:foldstart+1)
