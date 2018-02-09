@@ -472,10 +472,10 @@ function! TexFoldTextFunction()
 		endfor
 		"Pad with spaces to length 3
 		let qstnum = repeat(' ', 3-len(qstnum)) . qstnum . ' '
-		"Does it have points associated?
-		" FIXME: it would be nice to actually count up the points from any
-		" subsequent parts. For now, just include points if this question is
-		" assigned points directly.
+		" Does it have points associated? Let's count them!
+		" FIXME: It would be better to count points also in associated
+		" subparts and subsubparts, and give a warning if there were any
+		" overlapping point assignments.
 		let questionpoints = 0
 		let partpoints = 0
 		let points  = str2nr(matchstr(getline(v:foldstart), '\\question\[\zs\d\+'))
