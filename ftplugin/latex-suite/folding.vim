@@ -476,10 +476,29 @@ function! TexFoldTextFunction()
 		" FIXME: it would be nice to actually count up the points from any
 		" subsequent parts. For now, just include points if this question is
 		" assigned points directly.
+		let questionpoints = 0
+		let partpoints = 0
 		let points  = str2nr(matchstr(getline(v:foldstart), '\\question\[\zs\d\+'))
+		if points > 0
+			let questionpoints = 1
+		endif
+		let i=1
+		while len(matchstr(getline(v:foldstart + i), '\\question\|\\end{parts}')) == 0
+			let morepoints = str2nr(matchstr(getline(v:foldstart + i), '\\part\[\zs\d\+'))
+			let points = points + morepoints
+			if morepoints > 0
+				let partpoints = 1
+			endif
+			let i = i + 1
+		endwhile
+		let pointwarning = ''
+		if partpoints && questionpoints
+			let pointwarning = '!'
+		endif
+
 		" Pad with spaces to length 3
 		let points = repeat(' ', 3-len(points)) . points . ' pts'
-		return myfoldtext . '[Question' . qstnum . points . substitute(getline(v:foldstart), '^\s*\\question\(\[\d\+\]\)\? \+', '] ', '')
+		return myfoldtext . '[Question' . qstnum . points . pointwarning . substitute(getline(v:foldstart), '^\s*\\question\(\[\d\+\]\)\? \+', '] ', '')
 	elseif getline(v:foldstart) =~ '^\s*%\+[% =-]*$'
 		" Useless comment. Use the next line.
 		return myfoldtext . getline(v:foldstart+1)
