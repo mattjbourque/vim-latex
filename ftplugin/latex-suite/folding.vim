@@ -483,7 +483,9 @@ function! TexFoldTextFunction()
 			let questionpoints = 1
 		endif
 		let i=1
-		while len(matchstr(getline(v:foldstart + i), '\\question\|\\end{parts}')) == 0
+		" Look for points until the end of a parts environment, or the next
+		" question, or the end of questions, or  the end of the file.
+		while len(matchstr(getline(v:foldstart + i), '\\question\|\\end{parts}\|\\end{questions}\|\%$')) == 0
 			let morepoints = str2nr(matchstr(getline(v:foldstart + i), '\\part\[\zs\d\+'))
 			let points = points + morepoints
 			if morepoints > 0
@@ -498,7 +500,8 @@ function! TexFoldTextFunction()
 
 		" Pad with spaces to length 3
 		let points = repeat(' ', 3-len(points)) . points . ' pts'
-		return myfoldtext . '[Question' . qstnum . points . pointwarning . substitute(getline(v:foldstart), '^\s*\\question\(\[\d\+\]\)\? \+', '] ', '')
+		" TODO: deal better with labels. They currently screw up the foldtext.
+		return myfoldtext . '[Question' . qstnum . points . pointwarning . '] ' . substitute(getline(v:foldstart), '^\s*\\question\(\[\d\+\]\)\? \+', '', '')
 	elseif getline(v:foldstart) =~ '^\s*%\+[% =-]*$'
 		" Useless comment. Use the next line.
 		return myfoldtext . getline(v:foldstart+1)
