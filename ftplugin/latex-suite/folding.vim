@@ -85,7 +85,7 @@ function! MakeTexFolds(force, manual)
 	if exists('g:Tex_Folding') && !g:Tex_Folding
 		return
 	endif
-	if &ft != 'tex'
+	if !(&ft == 'tex' || &ft == 'rnoweb')
 		return
 	end
 
